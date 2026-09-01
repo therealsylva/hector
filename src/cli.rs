@@ -37,6 +37,12 @@ pub enum Command {
         command: MarketCommand,
     },
 
+    /// Build validated realtime subscription topics.
+    Topic {
+        #[command(subcommand)]
+        command: TopicCommand,
+    },
+
     /// Stream live price and event updates over the public realtime socket.
     Stream(StreamArgs),
 
@@ -91,6 +97,39 @@ pub struct MarketQueryArgs {
     /// Query value passed through to the upstream endpoint. Repeat as needed.
     #[arg(long = "param", value_name = "KEY=VALUE")]
     pub params: Vec<QueryParam>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum TopicCommand {
+    /// Build a four-field event topic.
+    Event(EventTopicArgs),
+    /// Build a seven-field market topic.
+    Market(MarketTopicArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct EventTopicArgs {
+    #[arg(long)]
+    pub sport_id: String,
+    #[arg(long)]
+    pub category_id: String,
+    #[arg(long)]
+    pub tournament_id: String,
+    #[arg(long)]
+    pub event_id: String,
+}
+
+#[derive(Debug, Args)]
+pub struct MarketTopicArgs {
+    #[command(flatten)]
+    pub event: EventTopicArgs,
+    #[arg(long)]
+    pub product_id: String,
+    #[arg(long)]
+    pub market_id: String,
+    /// Market specifier, or `~` when the market has none.
+    #[arg(long, default_value = "~")]
+    pub specifier: String,
 }
 
 #[derive(Debug, Args)]
