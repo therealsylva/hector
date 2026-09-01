@@ -5,7 +5,7 @@ use hector_cli::{
     cli::{Cli, Command, SessionCommand},
     client::SportyClient,
     config::Settings,
-    market, realtime, session,
+    market, orders, realtime, session,
 };
 
 #[tokio::main]
@@ -42,6 +42,17 @@ async fn main() -> Result<()> {
             }
         }
         Command::Stream(args) => realtime::stream(&args).await?,
+        Command::Bet {
+            command: hector_cli::cli::BetCommand::Single(args),
+        } => {
+            let client = SportyClient::new(Settings::from_env()?)?;
+            let outcome = orders::single(&client, &args).await?;
+            if cli.json {
+                println!("{}", serde_json::to_string(&outcome)?);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&outcome)?);
+            }
+        }
     }
 
     Ok(())
