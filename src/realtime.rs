@@ -3,6 +3,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tokio::time::{Duration, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use uuid::Uuid;
 
@@ -60,11 +61,45 @@ pub async fn stream(args: &StreamArgs) -> Result<()> {
         .device_id
         .clone()
         .unwrap_or_else(|| Uuid::new_v4().to_string());
+    let initial_backoff = Duration::from_millis(args.initial_backoff_ms);
+    let max_backoff = Duration::from_millis(args.max_backoff_ms);
+    let mut backoff = initial_backoff;
+
+    loop {
+        let mut subscribed = false;
+        match stream_connection(args, &device_id, &mut subscribed).await {
+            Ok(()) => return Ok(()),
+            Err(error) if args.no_reconnect => return Err(error),
+            Err(error) => {
+                if subscribed {
+                    backoff = initial_backoff;
+                }
+                eprintln!(
+                    "realtime connection lost; reconnecting in {} ms: {error:#}",
+                    backoff.as_millis()
+                );
+                tokio::select! {
+                    () = sleep(backoff) => {}
+                    signal = tokio::signal::ctrl_c() => {
+                        signal.context("failed to listen for Ctrl-C")?;
+                        return Ok(());
+                    }
+                }
+                backoff = next_backoff(backoff, max_backoff);
+            }
+        }
+    }
+}
+
+async fn stream_connection(
+    args: &StreamArgs,
+    device_id: &str,
+    subscribed: &mut bool,
+) -> Result<()> {
     let (socket, _) = connect_async(&args.socket_url)
         .await
         .context("failed to connect to the SportyBet realtime socket")?;
     let (mut writer, mut reader) = socket.split();
-    let mut subscribed = false;
 
     loop {
         tokio::select! {
@@ -84,9 +119,9 @@ pub async fn stream(args: &StreamArgs) -> Result<()> {
                         } else if let Some(ping_data) = frame.strip_prefix('2') {
                             let pong = format!("3{ping_data}");
                             writer.send(Message::Text(pong.into())).await?;
-                        } else if frame == "40" && !subscribed {
-                            register_and_subscribe(&mut writer, args, &device_id).await?;
-                            subscribed = true;
+                        } else if frame == "40" && !*subscribed {
+                            register_and_subscribe(&mut writer, args, device_id).await?;
+                            *subscribed = true;
                         } else if let Some(event) = parse_event_frame(frame)? {
                             println!("{}", serde_json::to_string(&event)?);
                         } else if frame.starts_with('1') {
@@ -100,7 +135,7 @@ pub async fn stream(args: &StreamArgs) -> Result<()> {
             }
             signal = tokio::signal::ctrl_c() => {
                 signal.context("failed to listen for Ctrl-C")?;
-                writer.send(Message::Close(None)).await?;
+                let _ = writer.send(Message::Close(None)).await;
                 return Ok(());
             }
         }
@@ -114,7 +149,17 @@ fn validate(args: &StreamArgs) -> Result<()> {
     if args.push_type.as_upstream() == "MULTI" && args.account_id.is_none() {
         bail!("--account-id is required for --push-type multi");
     }
+    if args.initial_backoff_ms == 0 {
+        bail!("--initial-backoff-ms must be greater than zero");
+    }
+    if args.max_backoff_ms < args.initial_backoff_ms {
+        bail!("--max-backoff-ms cannot be smaller than --initial-backoff-ms");
+    }
     Ok(())
+}
+
+fn next_backoff(current: Duration, maximum: Duration) -> Duration {
+    current.saturating_mul(2).min(maximum)
 }
 
 async fn register_and_subscribe<S>(writer: &mut S, args: &StreamArgs, device_id: &str) -> Result<()>
@@ -236,5 +281,15 @@ mod tests {
     #[test]
     fn ignores_other_socket_events() {
         assert!(parse_event_frame(r#"42["other",{}]"#).unwrap().is_none());
+    }
+
+    #[test]
+    fn reconnect_backoff_doubles_and_caps() {
+        let maximum = Duration::from_secs(10);
+        assert_eq!(
+            next_backoff(Duration::from_millis(250), maximum),
+            Duration::from_millis(500)
+        );
+        assert_eq!(next_backoff(Duration::from_secs(8), maximum), maximum);
     }
 }

@@ -107,6 +107,8 @@ sportId^categoryId^tournamentId^eventId^productId^marketId^marketSpecifiers
 
 `~` is the upstream wildcard/empty marker. MULTI subscriptions require `--account-id`.
 
+The stream reconnects and resubscribes after transport failures, using exponential backoff from 250 ms to 10 seconds. Tune that with `--initial-backoff-ms` and `--max-backoff-ms`, or use `--no-reconnect` for one-shot diagnostics.
+
 ## Bet dry-run and execution
 
 Without `--execute`, the command performs no authenticated request and prints the exact order payload:
