@@ -90,6 +90,29 @@ impl SportyClient {
         .await
     }
 
+    /// Sends an encrypted protected-endpoint payload and returns its raw response.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid paths, transport failures, non-success responses,
+    /// or a response body that is not UTF-8.
+    pub async fn post_ciphertext(
+        &self,
+        path: &str,
+        trans_id: &str,
+        body: String,
+    ) -> Result<String> {
+        let bytes = self
+            .send_bytes(
+                self.request(Method::POST, path)?
+                    .header(header::CONTENT_TYPE, "application/json;charset=UTF-8")
+                    .header("transId", trans_id)
+                    .body(body),
+            )
+            .await?;
+        String::from_utf8(bytes).context("encrypted response was not UTF-8")
+    }
+
     /// Resolves an API-relative path against the configured base URL.
     ///
     /// # Errors
@@ -128,6 +151,11 @@ impl SportyClient {
     where
         T: DeserializeOwned,
     {
+        let body = self.send_bytes(request).await?;
+        serde_json::from_slice(&body).context("SportyBet returned invalid JSON")
+    }
+
+    async fn send_bytes(&self, request: RequestBuilder) -> Result<Vec<u8>> {
         let response = request.send().await.context("SportyBet request failed")?;
         let status = response.status();
         let server = response
@@ -148,6 +176,6 @@ impl SportyClient {
             bail!("SportyBet returned HTTP {status}: {preview}");
         }
 
-        serde_json::from_slice(&body).context("SportyBet returned invalid JSON")
+        Ok(body.to_vec())
     }
 }
