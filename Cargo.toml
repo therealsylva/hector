@@ -1,0 +1,27 @@
+[package]
+name = "hector-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Low-latency SportyBet market data and guarded execution CLI"
+license = "MIT"
+repository = "https://github.com/therealsylva/hector"
+
+[[bin]]
+name = "hector"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive", "env"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
