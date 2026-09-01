@@ -23,7 +23,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 rsa = "0.9"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-tokio = { version = "1.47", features = ["macros", "rt-multi-thread", "signal"] }
+tokio = { version = "1.47", features = ["macros", "rt-multi-thread", "signal", "time"] }
 tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots"] }
 url = "2.5"
 uuid = { version = "1.18", features = ["v4"] }
