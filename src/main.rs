@@ -6,7 +6,7 @@ use hector_cli::{
     client::SportyClient,
     config::Settings,
     journal::Journal,
-    market, orders, realtime, session,
+    market, orders, realtime, session, topic,
 };
 
 #[tokio::main]
@@ -40,6 +40,14 @@ async fn main() -> Result<()> {
                 println!("{}", serde_json::to_string(&response)?);
             } else {
                 println!("{}", serde_json::to_string_pretty(&response)?);
+            }
+        }
+        Command::Topic { command } => {
+            let value = topic::build(&command)?;
+            if cli.json {
+                println!("{}", serde_json::json!({"topic": value}));
+            } else {
+                println!("{value}");
             }
         }
         Command::Stream(args) => realtime::stream(&args).await?,
