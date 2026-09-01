@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux-x86_64:
+    name: Publish Linux x86_64
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tag matches Cargo version
+        run: |
+          package_version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')"
+          test "$GITHUB_REF_NAME" = "v$package_version"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-release-${{ hashFiles('**/Cargo.lock') }}
+      - run: cargo build --release --locked
+      - name: Package binary and checksum
+        run: |
+          install -Dm755 target/release/hector dist/hector
+          tar -C dist -czf dist/hector-${GITHUB_REF_NAME}-linux-x86_64.tar.gz hector
+          sha256sum dist/hector-${GITHUB_REF_NAME}-linux-x86_64.tar.gz > dist/hector-${GITHUB_REF_NAME}-linux-x86_64.tar.gz.sha256
+          rm dist/hector
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --verify-tag --generate-notes --title "$GITHUB_REF_NAME"
