@@ -5,6 +5,7 @@ use hector_cli::{
     cli::{Cli, Command, SessionCommand},
     client::SportyClient,
     config::Settings,
+    journal::Journal,
     market, orders, realtime, session,
 };
 
@@ -51,6 +52,14 @@ async fn main() -> Result<()> {
                 println!("{}", serde_json::to_string(&outcome)?);
             } else {
                 println!("{}", serde_json::to_string_pretty(&outcome)?);
+            }
+        }
+        Command::Orders { command } => {
+            let records = Journal::from_env()?.load(command.journal_limit())?;
+            if cli.json {
+                println!("{}", serde_json::to_string(&records)?);
+            } else {
+                println!("{}", serde_json::to_string_pretty(&records)?);
             }
         }
     }

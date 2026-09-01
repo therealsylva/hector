@@ -45,6 +45,12 @@ pub enum Command {
         #[command(subcommand)]
         command: BetCommand,
     },
+
+    /// Inspect locally journaled order attempts.
+    Orders {
+        #[command(subcommand)]
+        command: OrdersCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -182,4 +188,23 @@ pub struct SingleBetArgs {
     /// Hard stake ceiling required for execution.
     #[arg(long)]
     pub max_stake: Option<ScaledAmount>,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum OrdersCommand {
+    /// Print the newest append-only journal records.
+    Journal {
+        /// Maximum records to return; zero means all records.
+        #[arg(long, default_value_t = 50)]
+        limit: usize,
+    },
+}
+
+impl OrdersCommand {
+    #[must_use]
+    pub const fn journal_limit(&self) -> usize {
+        match self {
+            Self::Journal { limit } => *limit,
+        }
+    }
 }
