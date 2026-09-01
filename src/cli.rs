@@ -1,6 +1,6 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
-use crate::market::QueryParam;
+use crate::{market::QueryParam, orders::ScaledAmount};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -39,6 +39,12 @@ pub enum Command {
 
     /// Stream live price and event updates over the public realtime socket.
     Stream(StreamArgs),
+
+    /// Build or submit a guarded bet order.
+    Bet {
+        #[command(subcommand)]
+        command: BetCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -132,4 +138,48 @@ impl PushType {
             Self::Special => "SPECIAL",
         }
     }
+}
+
+#[derive(Debug, Subcommand)]
+pub enum BetCommand {
+    /// Build or submit one single-selection order.
+    Single(SingleBetArgs),
+}
+
+#[derive(Debug, Args)]
+pub struct SingleBetArgs {
+    #[arg(long)]
+    pub event_id: String,
+    #[arg(long)]
+    pub sport_id: String,
+    /// Upstream market product: typically 1 for live or 3 for prematch.
+    #[arg(long)]
+    pub product_id: u32,
+    #[arg(long)]
+    pub market_id: String,
+    #[arg(long)]
+    pub outcome_id: String,
+    #[arg(long)]
+    pub specifier: Option<String>,
+    /// Decimal odds copied from the current outcome.
+    #[arg(long)]
+    pub odds: String,
+    /// Outcome probability copied from the current outcome.
+    #[arg(long)]
+    pub probability: String,
+    /// Stake in major currency units, with up to four decimal places.
+    #[arg(long)]
+    pub stake: ScaledAmount,
+    /// Upstream wallet/payment type shown by the active web session.
+    #[arg(long)]
+    pub payment_type: u32,
+    /// Actually submit the order. Without this flag Hector only prints a dry-run.
+    #[arg(long)]
+    pub execute: bool,
+    /// Second explicit confirmation required together with `--execute`.
+    #[arg(long, requires = "execute")]
+    pub confirm_order: bool,
+    /// Hard stake ceiling required for execution.
+    #[arg(long)]
+    pub max_stake: Option<ScaledAmount>,
 }
