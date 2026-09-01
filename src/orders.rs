@@ -8,6 +8,7 @@ use crate::{
     cli::SingleBetArgs,
     client::SportyClient,
     crypto::TransactionCipher,
+    journal::{Journal, JournalState},
     session::{ApiEnvelope, SUCCESS_BIZ_CODE},
 };
 
@@ -116,8 +117,15 @@ struct Stake {
 #[derive(Debug, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum ExecutionOutcome {
-    DryRun { request: OrderRequest },
-    Confirmed { response: Value },
+    DryRun {
+        request: OrderRequest,
+    },
+    Confirmed {
+        attempt_id: String,
+        response: Value,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        journal_warning: Option<String>,
+    },
 }
 
 /// Builds a single-selection request and, when explicitly armed, submits it once.
@@ -147,31 +155,79 @@ pub async fn single(client: &SportyClient, args: &SingleBetArgs) -> Result<Execu
     client.settings().require_cookie()?;
     let cipher = TransactionCipher::bootstrap(client).await?;
     let body = cipher.encrypt_json(&request)?;
-    let response = client
+    let journal = Journal::from_env()?;
+    let attempt_id = journal.begin(&request)?;
+    let response = match client
         .post_ciphertext("orders/order", cipher.trans_id(), body)
         .await
-        .map_err(|error| {
-            anyhow::anyhow!(
-                "order result may be ambiguous; do not retry automatically—check Bet History first: {error}"
-            )
-        })?;
+    {
+        Ok(response) => response,
+        Err(error) => {
+            let journal_error = journal
+                .transition(
+                    &attempt_id,
+                    JournalState::Ambiguous,
+                    serde_json::json!({"error": error.to_string()}),
+                )
+                .err();
+            let suffix = journal_error.map_or_else(String::new, |journal_error| {
+                format!("; journal update also failed: {journal_error}")
+            });
+            bail!(
+                "order attempt {attempt_id} may be ambiguous; do not retry automatically—check Bet History first: {error}{suffix}"
+            );
+        }
+    };
 
     if response.trim_start().starts_with('{') {
         let error: Value = serde_json::from_str(&response)
             .context("protected endpoint returned an invalid plaintext error")?;
+        let _ = journal.transition(
+            &attempt_id,
+            JournalState::Rejected,
+            serde_json::json!({"response": &error}),
+        );
         bail!("order was rejected before decryption: {error}");
     }
 
-    let envelope: ApiEnvelope<Value> = cipher.decrypt_json(&response)?;
+    let envelope: ApiEnvelope<Value> = match cipher.decrypt_json(&response) {
+        Ok(envelope) => envelope,
+        Err(error) => {
+            let _ = journal.transition(
+                &attempt_id,
+                JournalState::Ambiguous,
+                serde_json::json!({"error": error.to_string()}),
+            );
+            bail!(
+                "order attempt {attempt_id} returned an undecodable response and is ambiguous; check Bet History before retrying: {error}"
+            );
+        }
+    };
     if envelope.biz_code != SUCCESS_BIZ_CODE {
+        let _ = journal.transition(
+            &attempt_id,
+            JournalState::Rejected,
+            serde_json::json!({"bizCode": envelope.biz_code, "message": &envelope.message}),
+        );
         bail!(
             "order rejected with bizCode {}: {}",
             envelope.biz_code,
             envelope.message
         );
     }
+    let response = envelope.data.unwrap_or(Value::Null);
+    let journal_warning = journal
+        .transition(
+            &attempt_id,
+            JournalState::Confirmed,
+            serde_json::json!({"response": &response}),
+        )
+        .err()
+        .map(|error| error.to_string());
     Ok(ExecutionOutcome::Confirmed {
-        response: envelope.data.unwrap_or(Value::Null),
+        attempt_id,
+        response,
+        journal_warning,
     })
 }
 
