@@ -16,7 +16,9 @@ anyhow = "1.0"
 clap = { version = "4.5", features = ["derive", "env"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 tokio = { version = "1.47", features = ["macros", "rt-multi-thread"] }
+url = "2.5"
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -24,4 +26,3 @@ unsafe_code = "forbid"
 [lints.clippy]
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
-
