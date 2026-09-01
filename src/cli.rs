@@ -1,4 +1,6 @@
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
+
+use crate::market::QueryParam;
 
 #[derive(Debug, Parser)]
 #[command(
@@ -28,10 +30,50 @@ pub enum Command {
 
     /// Print the account balance for the configured currency.
     Balance,
+
+    /// Query `SportyBet`'s public fixtures and markets.
+    Market {
+        #[command(subcommand)]
+        command: MarketCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 pub enum SessionCommand {
     /// Check the cookie-backed session without changing account state.
     Check,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum MarketCommand {
+    /// List available sports.
+    Sports(MarketQueryArgs),
+    /// List live or prematch events.
+    Events(MarketQueryArgs),
+    /// Fetch one event and its current markets.
+    Event(MarketQueryArgs),
+    /// List the market groups available for an event.
+    MarketGroups(MarketQueryArgs),
+    /// Fetch outcomes and current prices.
+    Outcomes(MarketQueryArgs),
+}
+
+impl MarketCommand {
+    #[must_use]
+    pub fn query(&self) -> &[QueryParam] {
+        match self {
+            Self::Sports(args)
+            | Self::Events(args)
+            | Self::Event(args)
+            | Self::MarketGroups(args)
+            | Self::Outcomes(args) => &args.params,
+        }
+    }
+}
+
+#[derive(Debug, Args)]
+pub struct MarketQueryArgs {
+    /// Query value passed through to the upstream endpoint. Repeat as needed.
+    #[arg(long = "param", value_name = "KEY=VALUE")]
+    pub params: Vec<QueryParam>,
 }
