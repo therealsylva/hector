@@ -75,7 +75,20 @@ hector market outcomes --param eventId=sr:match:123456 --param marketId=1
 
 ## Realtime feed
 
-Pass raw caret-separated topics from market data or the web client. Repeat `--topic` to multiplex subscriptions on one connection.
+Build a validated topic from its fields when you do not already have the raw value:
+
+```bash
+hector topic market \
+  --sport-id 1 \
+  --category-id 1 \
+  --tournament-id sr:tournament:17 \
+  --event-id sr:match:123456 \
+  --product-id 3 \
+  --market-id 18 \
+  --specifier total=2.5
+```
+
+Pass the resulting caret-separated topic to the feed. Repeat `--topic` to multiplex subscriptions on one connection.
 
 ```bash
 hector stream \
