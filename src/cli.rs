@@ -165,6 +165,18 @@ pub struct StreamArgs {
     /// Print unparsed Engine.IO frames.
     #[arg(long)]
     pub raw: bool,
+
+    /// Exit on disconnect instead of reconnecting and resubscribing.
+    #[arg(long)]
+    pub no_reconnect: bool,
+
+    /// Delay before the first reconnect attempt.
+    #[arg(long, default_value_t = 250)]
+    pub initial_backoff_ms: u64,
+
+    /// Maximum reconnect delay.
+    #[arg(long, default_value_t = 10_000)]
+    pub max_backoff_ms: u64,
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
