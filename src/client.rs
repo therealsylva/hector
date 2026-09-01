@@ -73,6 +73,23 @@ impl SportyClient {
             .await
     }
 
+    /// Sends a plain-text POST request and decodes its JSON response.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for invalid paths, transport failures, non-success responses, or invalid JSON.
+    pub async fn post_text<T>(&self, path: &str, body: String) -> Result<T>
+    where
+        T: DeserializeOwned,
+    {
+        self.send(
+            self.request(Method::POST, path)?
+                .header(header::CONTENT_TYPE, "text/plain")
+                .body(body),
+        )
+        .await
+    }
+
     /// Resolves an API-relative path against the configured base URL.
     ///
     /// # Errors
