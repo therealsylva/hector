@@ -9,5 +9,6 @@ pub mod market;
 pub mod orders;
 pub mod realtime;
 pub mod session;
+pub mod topic;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
