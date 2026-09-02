@@ -51,7 +51,7 @@ impl TransactionCipher {
     /// Returns an error when no browser session is configured, key generation or
     /// RSA encryption fails, or the upstream cipher endpoint rejects the request.
     pub async fn bootstrap(client: &SportyClient) -> Result<Self> {
-        client.settings().require_cookie()?;
+        client.settings().require_account_cookie()?;
         let mut key = [0_u8; AES_KEY_LEN];
         OsRng.fill_bytes(&mut key);
         let body = rsa_bootstrap_body(&key)?;

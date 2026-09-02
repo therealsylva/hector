@@ -132,7 +132,9 @@ impl SportyClient {
             .request(method, url)
             .header(header::ACCEPT, "application/json")
             .header(header::ACCEPT_LANGUAGE, &self.settings.locale)
-            .header("OperId", &self.settings.oper_id);
+            .header("OperId", &self.settings.oper_id)
+            .header("clientid", &self.settings.client_id)
+            .header("platform", &self.settings.platform);
 
         if let Some(cookie) = &self.settings.cookie {
             request = request.header(header::COOKIE, cookie.expose());

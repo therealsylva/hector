@@ -15,7 +15,7 @@ The API root is `https://www.sportybet.com/api/ng/`. Hector currently exposes th
 | Outcomes | `factsCenter/Outcomes` |
 | Balance/session check | `pocket/v1/finAccs/finAcc/userBal/{currency}` |
 
-Requests use `OperId: 2` by default. Account calls also forward the imported `Cookie`, optional `DeviceId`, and optional `Fingerprint` headers. Hector surfaces CloudFront 403 responses and does not attempt to bypass WAF or CAPTCHA controls.
+Requests use `OperId: 2`, `clientid: web`, and `platform: web` by default. Account calls also forward the imported `Cookie`, optional `DeviceId`, and optional `Fingerprint` headers. The imported cookie must come from an `/api/ng` account request so it includes `accessToken` and `userId`. Hector surfaces CloudFront 403 responses and does not attempt to bypass WAF or CAPTCHA controls.
 
 ## Realtime registration and subscriptions
 

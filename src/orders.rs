@@ -152,7 +152,7 @@ pub async fn single(client: &SportyClient, args: &SingleBetArgs) -> Result<Execu
             max_stake
         );
     }
-    client.settings().require_cookie()?;
+    client.settings().require_account_cookie()?;
     let cipher = TransactionCipher::bootstrap(client).await?;
     let body = cipher.encrypt_json(&request)?;
     let journal = Journal::from_env()?;

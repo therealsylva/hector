@@ -31,7 +31,9 @@ install -Dm755 target/release/hector ~/.local/bin/hector
 
 ## Configure a browser session
 
-Copy `.env.example` to a private file, replace the placeholder with the complete `Cookie` request-header value from an already-authenticated browser session, then export it into the shell:
+Log in through the website, open the browser Network panel, and filter for `userBal`. Select the authenticated request ending in `/api/ng/pocket/v1/finAccs/finAcc/userBal/NGN`, then copy its complete `Cookie` request-header value. Cookies copied from CMS or static-asset requests are incomplete because the account credentials are scoped to `/api/ng`.
+
+Copy `.env.example` to a private file, replace the placeholder with that `Cookie` value, then export it into the shell:
 
 ```bash
 cp .env.example .env
@@ -53,6 +55,8 @@ Do not put a username, password, or OTP in this file. Never commit `.env`; it is
 | `SPORTYBET_SOCKET_URL` | Engine.IO WebSocket endpoint | `wss://alive-ng.sportybet.com/socket.io/?EIO=3&transport=websocket` |
 | `SPORTYBET_CURRENCY` | Balance currency | `NGN` |
 | `SPORTYBET_OPER_ID` | Operator header | `2` |
+| `SPORTYBET_CLIENT_ID` | Deployed web-client identifier | `web` |
+| `SPORTYBET_PLATFORM` | Deployed web platform header | `web` |
 | `SPORTYBET_LOCALE` | Accept-Language value | `en` |
 | `HECTOR_TIMEOUT_MS` | HTTP timeout in milliseconds | `10000` |
 | `HECTOR_JOURNAL_PATH` | Append-only order journal | XDG/user state directory |

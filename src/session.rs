@@ -37,7 +37,7 @@ pub struct SessionStatus {
 ///
 /// Returns an error when no cookie is configured, the request fails, or `SportyBet` rejects the session.
 pub async fn check(client: &SportyClient) -> Result<SessionStatus> {
-    client.settings().require_cookie()?;
+    client.settings().require_account_cookie()?;
     let currency = &client.settings().currency;
     let path = format!("pocket/v1/finAccs/finAcc/userBal/{currency}");
     let response: ApiEnvelope<BalanceData> = client.get(&path).await?;
