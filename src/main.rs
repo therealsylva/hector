@@ -1,76 +1,30 @@
-use anyhow::Result;
+use std::io::IsTerminal;
+
+use anyhow::{Result, bail};
 use clap::Parser;
 use hector_cli::{
-    VERSION,
-    cli::{Cli, Command, SessionCommand},
-    client::SportyClient,
-    config::Settings,
-    journal::Journal,
-    market, orders, realtime, session, topic,
+    app::{self, RunOptions},
+    cli::Cli,
+    repl,
 };
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let cli = Cli::parse();
-
-    match cli.command {
-        Command::Version => {
-            println!("hector {VERSION}");
+    let Some(command) = cli.command else {
+        if cli.json || cli.plain || !std::io::stdin().is_terminal() {
+            bail!("no command supplied; run `hector --help` or launch `hector` in a terminal")
         }
-        Command::Session {
-            command: SessionCommand::Check,
-        }
-        | Command::Balance => {
-            let client = SportyClient::new(Settings::from_env()?)?;
-            let status = session::check(&client).await?;
-            if cli.json {
-                println!("{}", serde_json::to_string(&status)?);
-            } else {
-                println!("session: authenticated");
-                println!("balance: {} {}", status.currency, status.available_balance);
-                if status.available_coins != "0.0000" {
-                    println!("coins: {}", status.available_coins);
-                }
-            }
-        }
-        Command::Market { command } => {
-            let client = SportyClient::new(Settings::from_env()?)?;
-            let response = market::fetch(&client, &command).await?;
-            if cli.json {
-                println!("{}", serde_json::to_string(&response)?);
-            } else {
-                println!("{}", serde_json::to_string_pretty(&response)?);
-            }
-        }
-        Command::Topic { command } => {
-            let value = topic::build(&command)?;
-            if cli.json {
-                println!("{}", serde_json::json!({"topic": value}));
-            } else {
-                println!("{value}");
-            }
-        }
-        Command::Stream(args) => realtime::stream(&args).await?,
-        Command::Bet {
-            command: hector_cli::cli::BetCommand::Single(args),
-        } => {
-            let client = SportyClient::new(Settings::from_env()?)?;
-            let outcome = orders::single(&client, &args).await?;
-            if cli.json {
-                println!("{}", serde_json::to_string(&outcome)?);
-            } else {
-                println!("{}", serde_json::to_string_pretty(&outcome)?);
-            }
-        }
-        Command::Orders { command } => {
-            let records = Journal::from_env()?.load(command.journal_limit())?;
-            if cli.json {
-                println!("{}", serde_json::to_string(&records)?);
-            } else {
-                println!("{}", serde_json::to_string_pretty(&records)?);
-            }
-        }
-    }
-
-    Ok(())
+        return repl::run(cli.color).await;
+    };
+    app::run(
+        command,
+        RunOptions {
+            json: cli.json,
+            plain: cli.plain,
+            color: cli.color,
+            interactive: false,
+        },
+    )
+    .await
 }
