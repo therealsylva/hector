@@ -8,7 +8,7 @@ use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::Serialize;
 use serde_json::Value;
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 use crate::{
     VERSION,
@@ -380,7 +380,7 @@ fn truncate(value: &str, width: usize) -> String {
     }
     let mut output = String::new();
     for character in value.chars() {
-        if UnicodeWidthStr::width(output.as_str()) + character.len_utf8() + 1 > width {
+        if UnicodeWidthStr::width(output.as_str()) + character.width().unwrap_or(0) + 1 > width {
             break;
         }
         output.push(character);

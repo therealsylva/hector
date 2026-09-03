@@ -18,8 +18,8 @@ use rustyline::{
 use crate::{
     app::{self, RunOptions},
     cli::{
-        BetCommand, Cli, ColorPolicy, Command, EventTopicArgs, MarketTopicArgs, PushType,
-        SessionCommand, SingleBetArgs, TopicCommand,
+        BetCommand, Cli, ColorPolicy, Command, EventTopicArgs, MarketTopicArgs, SessionCommand,
+        SingleBetArgs, TopicCommand,
     },
     client::SportyClient,
     config::Settings,
@@ -35,8 +35,15 @@ const COMPLETIONS: &[&str] = &[
     "watch",
 ];
 
-#[derive(Helper, Highlighter, Hinter, Validator)]
 struct HectorHelper;
+
+impl Helper for HectorHelper {}
+impl Highlighter for HectorHelper {}
+impl Validator for HectorHelper {}
+
+impl Hinter for HectorHelper {
+    type Hint = String;
+}
 
 impl Completer for HectorHelper {
     type Candidate = Pair;
@@ -218,10 +225,7 @@ async fn show_startup_status(ui: Ui) {
     }
 
     let spinner = ui.spinner("Checking session…");
-    let status = SportyClient::new(settings)
-        .and_then(|client| Ok(client))
-        .map_err(|error| error.to_string());
-    let status = match status {
+    let status = match SportyClient::new(settings) {
         Ok(client) => session::check(&client)
             .await
             .map_err(|error| error.to_string()),
@@ -327,7 +331,7 @@ fn bet_wizard() -> Result<Command> {
         .interact_text()?;
     let product_id = [3_u32, 1_u32][Select::with_theme(&theme)
         .with_prompt("Market type")
-        .items(["Prematch", "Live"])
+        .items(&["Prematch", "Live"])
         .default(0)
         .interact()?];
     let market_id = Input::<String>::with_theme(&theme)
@@ -357,7 +361,7 @@ fn bet_wizard() -> Result<Command> {
 
     let live = Select::with_theme(&theme)
         .with_prompt("Order mode")
-        .items(["Dry run — preview only", "LIVE — submit one wager"])
+        .items(&["Dry run — preview only", "LIVE — submit one wager"])
         .default(0)
         .interact()?
         == 1;
@@ -414,7 +418,7 @@ fn topic_wizard() -> Result<Command> {
     let theme = ColorfulTheme::default();
     let kind = Select::with_theme(&theme)
         .with_prompt("Topic type")
-        .items(["Market", "Event"])
+        .items(&["Market", "Event"])
         .default(0)
         .interact()?;
     let event = EventTopicArgs {
@@ -455,7 +459,12 @@ fn topic_wizard() -> Result<Command> {
 
 fn history_path() -> Option<PathBuf> {
     ProjectDirs::from("com", "sylva", "hector")
-        .map(|directories| directories.state_dir().join("history"))
+        .map(|directories| {
+            directories
+                .state_dir()
+                .unwrap_or_else(|| directories.data_local_dir())
+                .join("history")
+        })
 }
 
 fn safe_for_history(line: &str) -> bool {
@@ -545,6 +554,6 @@ mod tests {
             panic!("expected stream command");
         };
         assert_eq!(args.topic, ["one^topic", "two^topic"]);
-        assert!(matches!(args.push_type, PushType::Group));
+        assert!(matches!(args.push_type, crate::cli::PushType::Group));
     }
 }

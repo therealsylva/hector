@@ -34,7 +34,6 @@ enum ConnectionState {
     Connecting,
     Live,
     Reconnecting,
-    Ended,
 }
 
 impl ConnectionState {
@@ -43,7 +42,6 @@ impl ConnectionState {
             Self::Connecting => "CONNECTING",
             Self::Live => "LIVE",
             Self::Reconnecting => "RECONNECTING",
-            Self::Ended => "ENDED",
         }
     }
 
@@ -51,7 +49,6 @@ impl ConnectionState {
         match self {
             Self::Connecting | Self::Reconnecting => Color::Yellow,
             Self::Live => Color::Green,
-            Self::Ended => Color::Red,
         }
     }
 }
@@ -95,7 +92,7 @@ pub async fn run(args: StreamArgs) -> Result<()> {
     let mut input = EventStream::new();
     let mut ticker = interval(Duration::from_millis(100));
     let mut state = ConnectionState::Connecting;
-    let mut logs = VecDeque::new();
+    let mut logs = VecDeque::<String>::new();
     let mut paused = false;
     let mut last_update = "waiting".to_owned();
 
@@ -178,7 +175,6 @@ pub async fn run(args: StreamArgs) -> Result<()> {
         tokio::select! {
             update = receiver.recv() => {
                 let Some(update) = update else {
-                    state = ConnectionState::Ended;
                     break;
                 };
                 match update {
