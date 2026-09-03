@@ -95,7 +95,7 @@ async fn stream_inner(
     let mut backoff = initial_backoff;
 
     loop {
-        emit_update(&sender, RealtimeUpdate::Connecting);
+        emit_update(sender.as_ref(), RealtimeUpdate::Connecting);
         let mut subscribed = false;
         match stream_connection(args, &device_id, &mut subscribed, sender.as_ref()).await {
             Ok(()) => return Ok(()),
@@ -106,7 +106,7 @@ async fn stream_inner(
                 }
                 if sender.is_some() {
                     emit_update(
-                        &sender,
+                        sender.as_ref(),
                         RealtimeUpdate::Reconnecting {
                             delay_ms: backoff.as_millis(),
                             error: format!("{error:#}"),
@@ -194,7 +194,7 @@ async fn stream_connection(
     }
 }
 
-fn emit_update(sender: &Option<UnboundedSender<RealtimeUpdate>>, update: RealtimeUpdate) {
+fn emit_update(sender: Option<&UnboundedSender<RealtimeUpdate>>, update: RealtimeUpdate) {
     if let Some(sender) = sender {
         let _ = sender.send(update);
     }

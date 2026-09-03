@@ -97,80 +97,7 @@ pub async fn run(args: StreamArgs) -> Result<()> {
     let mut last_update = "waiting".to_owned();
 
     loop {
-        terminal.draw(|frame| {
-            let areas = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(3),
-                    Constraint::Length(3),
-                    Constraint::Min(4),
-                    Constraint::Length(2),
-                ])
-                .split(frame.area());
-
-            let header = Paragraph::new(Line::from(vec![
-                Span::styled(
-                    " HECTOR ",
-                    Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                ),
-                Span::styled("// REALTIME", Style::default().fg(Color::DarkGray)),
-                Span::raw("     "),
-                Span::styled(
-                    format!("● {}", state.label()),
-                    Style::default()
-                        .fg(state.color())
-                        .add_modifier(Modifier::BOLD),
-                ),
-            ]))
-            .block(Block::default().borders(Borders::BOTTOM));
-            frame.render_widget(header, areas[0]);
-
-            let topic = args.topic.join("  ·  ");
-            let topic = Paragraph::new(Line::from(vec![
-                Span::styled("TOPICS  ", Style::default().fg(Color::DarkGray)),
-                Span::styled(topic, Style::default().fg(Color::Cyan)),
-            ]))
-            .wrap(Wrap { trim: true });
-            frame.render_widget(topic, areas[1]);
-
-            let visible_height = usize::from(areas[2].height.saturating_sub(2));
-            let start = logs.len().saturating_sub(visible_height);
-            let lines = logs
-                .iter()
-                .skip(start)
-                .map(|line| Line::from(line.as_str()))
-                .collect::<Vec<_>>();
-            let title = if paused {
-                " MARKET FEED · PAUSED "
-            } else {
-                " MARKET FEED "
-            };
-            let feed = Paragraph::new(lines)
-                .style(Style::default().fg(Color::White))
-                .block(
-                    Block::default()
-                        .title(Span::styled(title, Style::default().fg(Color::Cyan)))
-                        .borders(Borders::TOP),
-                )
-                .wrap(Wrap { trim: false });
-            frame.render_widget(feed, areas[2]);
-
-            let footer = Paragraph::new(Line::from(vec![
-                Span::styled(
-                    " q/esc ",
-                    Style::default().fg(Color::Black).bg(Color::White),
-                ),
-                Span::raw(" quit   "),
-                Span::styled(
-                    " space ",
-                    Style::default().fg(Color::Black).bg(Color::White),
-                ),
-                Span::raw(format!(" pause   last update {last_update}")),
-            ]));
-            frame.render_widget(footer, areas[3]);
-        })?;
+        terminal.draw(|frame| draw(frame, &args, state, &logs, paused, &last_update))?;
 
         tokio::select! {
             update = receiver.recv() => {
@@ -223,6 +150,87 @@ pub async fn run(args: StreamArgs) -> Result<()> {
 
     stream_task.abort();
     Ok(())
+}
+
+fn draw(
+    frame: &mut ratatui::Frame<'_>,
+    args: &StreamArgs,
+    state: ConnectionState,
+    logs: &VecDeque<String>,
+    paused: bool,
+    last_update: &str,
+) {
+    let areas = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Min(4),
+            Constraint::Length(2),
+        ])
+        .split(frame.area());
+
+    let header = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " HECTOR ",
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled("// REALTIME", Style::default().fg(Color::DarkGray)),
+        Span::raw("     "),
+        Span::styled(
+            format!("● {}", state.label()),
+            Style::default()
+                .fg(state.color())
+                .add_modifier(Modifier::BOLD),
+        ),
+    ]))
+    .block(Block::default().borders(Borders::BOTTOM));
+    frame.render_widget(header, areas[0]);
+
+    let topic = Paragraph::new(Line::from(vec![
+        Span::styled("TOPICS  ", Style::default().fg(Color::DarkGray)),
+        Span::styled(args.topic.join("  ·  "), Style::default().fg(Color::Cyan)),
+    ]))
+    .wrap(Wrap { trim: true });
+    frame.render_widget(topic, areas[1]);
+
+    let visible_height = usize::from(areas[2].height.saturating_sub(2));
+    let start = logs.len().saturating_sub(visible_height);
+    let lines = logs
+        .iter()
+        .skip(start)
+        .map(|line| Line::from(line.as_str()))
+        .collect::<Vec<_>>();
+    let title = if paused {
+        " MARKET FEED · PAUSED "
+    } else {
+        " MARKET FEED "
+    };
+    let feed = Paragraph::new(lines)
+        .style(Style::default().fg(Color::White))
+        .block(
+            Block::default()
+                .title(Span::styled(title, Style::default().fg(Color::Cyan)))
+                .borders(Borders::TOP),
+        )
+        .wrap(Wrap { trim: false });
+    frame.render_widget(feed, areas[2]);
+
+    let footer = Paragraph::new(Line::from(vec![
+        Span::styled(
+            " q/esc ",
+            Style::default().fg(Color::Black).bg(Color::White),
+        ),
+        Span::raw(" quit   "),
+        Span::styled(
+            " space ",
+            Style::default().fg(Color::Black).bg(Color::White),
+        ),
+        Span::raw(format!(" pause   last update {last_update}")),
+    ]));
+    frame.render_widget(footer, areas[3]);
 }
 
 fn push_log(logs: &mut VecDeque<String>, line: String) {

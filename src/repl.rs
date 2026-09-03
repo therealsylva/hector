@@ -106,85 +106,8 @@ pub async fn run(color: ColorPolicy) -> Result<()> {
             "hector › "
         };
         match editor.readline(prompt) {
-            Ok(line) => {
-                let line = line.trim();
-                if line.is_empty() {
-                    continue;
-                }
-                if safe_for_history(line) {
-                    let _ = editor.add_history_entry(line);
-                }
-
-                match line.to_ascii_lowercase().as_str() {
-                    "exit" | "quit" => break,
-                    "help" | "?" => {
-                        print_help();
-                        continue;
-                    }
-                    "clear" => {
-                        Term::stdout().clear_screen()?;
-                        ui.banner();
-                        show_startup_status(ui).await;
-                        continue;
-                    }
-                    "history" => {
-                        print_history(editor.history());
-                        continue;
-                    }
-                    "status" => {
-                        run_repl_command(
-                            Command::Session {
-                                command: SessionCommand::Check,
-                            },
-                            color,
-                        )
-                        .await;
-                        continue;
-                    }
-                    "bet" => {
-                        match bet_wizard() {
-                            Ok(command) => run_repl_command(command, color).await,
-                            Err(error) => ui.error(format!("{error:#}")),
-                        }
-                        continue;
-                    }
-                    "topic" => {
-                        match topic_wizard() {
-                            Ok(command) => run_repl_command(command, color).await,
-                            Err(error) => ui.error(format!("{error:#}")),
-                        }
-                        continue;
-                    }
-                    _ => {}
-                }
-
-                match parse_line(line) {
-                    Ok(cli) => {
-                        let Some(command) = cli.command else {
-                            continue;
-                        };
-                        let selected_color = if cli.color == ColorPolicy::Auto {
-                            color
-                        } else {
-                            cli.color
-                        };
-                        if let Err(error) = app::run(
-                            command,
-                            RunOptions {
-                                json: cli.json,
-                                plain: cli.plain,
-                                color: selected_color,
-                                interactive: !cli.json && !cli.plain,
-                            },
-                        )
-                        .await
-                        {
-                            ui.error(format!("{error:#}"));
-                        }
-                    }
-                    Err(error) => ui.error(error),
-                }
-            }
+            Ok(line) if handle_line(&line, &mut editor, ui, color).await? => break,
+            Ok(_) => {}
             Err(ReadlineError::Interrupted) => println!("^C"),
             Err(ReadlineError::Eof) => break,
             Err(error) => return Err(error).context("interactive prompt failed"),
@@ -199,6 +122,82 @@ pub async fn run(color: ColorPolicy) -> Result<()> {
     }
     println!("{}", Style::new().dim().apply_to("Hector closed."));
     Ok(())
+}
+
+async fn handle_line(
+    line: &str,
+    editor: &mut Editor<HectorHelper, DefaultHistory>,
+    ui: Ui,
+    color: ColorPolicy,
+) -> Result<bool> {
+    let line = line.trim();
+    if line.is_empty() {
+        return Ok(false);
+    }
+    if safe_for_history(line) {
+        let _ = editor.add_history_entry(line);
+    }
+
+    match line.to_ascii_lowercase().as_str() {
+        "exit" | "quit" => return Ok(true),
+        "help" | "?" => print_help(),
+        "clear" => {
+            Term::stdout().clear_screen()?;
+            ui.banner();
+            show_startup_status(ui).await;
+        }
+        "history" => print_history(editor.history()),
+        "status" => {
+            run_repl_command(
+                Command::Session {
+                    command: SessionCommand::Check,
+                },
+                color,
+            )
+            .await;
+        }
+        "bet" => match bet_wizard() {
+            Ok(command) => run_repl_command(command, color).await,
+            Err(error) => ui.error(format!("{error:#}")),
+        },
+        "topic" => match topic_wizard() {
+            Ok(command) => run_repl_command(command, color).await,
+            Err(error) => ui.error(format!("{error:#}")),
+        },
+        _ => run_parsed_line(line, ui, color).await,
+    }
+    Ok(false)
+}
+
+async fn run_parsed_line(line: &str, ui: Ui, color: ColorPolicy) {
+    let cli = match parse_line(line) {
+        Ok(cli) => cli,
+        Err(error) => {
+            ui.error(error);
+            return;
+        }
+    };
+    let Some(command) = cli.command else {
+        return;
+    };
+    let selected_color = if cli.color == ColorPolicy::Auto {
+        color
+    } else {
+        cli.color
+    };
+    if let Err(error) = app::run(
+        command,
+        RunOptions {
+            json: cli.json,
+            plain: cli.plain,
+            color: selected_color,
+            interactive: !cli.json && !cli.plain,
+        },
+    )
+    .await
+    {
+        ui.error(format!("{error:#}"));
+    }
 }
 
 async fn run_repl_command(command: Command, color: ColorPolicy) {

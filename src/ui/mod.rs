@@ -138,11 +138,10 @@ impl Ui {
             return None;
         }
         let spinner = ProgressBar::new_spinner();
-        spinner.set_style(
-            ProgressStyle::with_template("{spinner:.cyan.bold} {msg}")
-                .expect("valid static spinner template")
-                .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
-        );
+        let style = ProgressStyle::with_template("{spinner:.cyan.bold} {msg}")
+            .ok()?
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]);
+        spinner.set_style(style);
         spinner.set_message(message.to_owned());
         spinner.enable_steady_tick(std::time::Duration::from_millis(80));
         Some(spinner)
@@ -181,10 +180,7 @@ impl Ui {
 
     pub fn render_value(self, title: &str, value: &Value) {
         if !self.rich {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(value).expect("JSON value always serializes")
-            );
+            println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
             return;
         }
         self.section(title);
@@ -211,10 +207,7 @@ impl Ui {
 
     pub fn render_orders(self, records: &[JournalRecord]) {
         if !self.rich {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(records).expect("journal always serializes")
-            );
+            println!("{}", serde_json::to_string_pretty(records).unwrap_or_default());
             return;
         }
         self.section("Order journal");
@@ -240,7 +233,8 @@ impl Ui {
     }
 
     pub fn render_execution(self, outcome: &ExecutionOutcome) {
-        let value = serde_json::to_value(outcome).expect("execution outcome always serializes");
+        let value = serde_json::to_value(outcome)
+            .unwrap_or_else(|error| serde_json::json!({"renderError": error.to_string()}));
         match outcome {
             ExecutionOutcome::DryRun { .. } => {
                 self.warning("Dry run only — no wager was submitted.");
@@ -426,6 +420,11 @@ fn table(headers: &[&str], rows: &[Vec<String>]) -> Table {
     table
 }
 
+/// Prints one compact JSON value to standard output.
+///
+/// # Errors
+///
+/// Returns an error when the supplied value cannot be serialized.
 pub fn print_json<T: Serialize>(value: &T) -> anyhow::Result<()> {
     println!("{}", serde_json::to_string(value)?);
     Ok(())
