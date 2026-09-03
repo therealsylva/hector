@@ -9,9 +9,7 @@ use crossterm::{
     cursor::{Hide, Show},
     event::{Event, EventStream, KeyCode, KeyEventKind, KeyModifiers},
     execute,
-    terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-    },
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use futures_util::StreamExt;
 use ratatui::{
@@ -147,7 +145,11 @@ pub async fn run(args: StreamArgs) -> Result<()> {
                 .skip(start)
                 .map(|line| Line::from(line.as_str()))
                 .collect::<Vec<_>>();
-            let title = if paused { " MARKET FEED · PAUSED " } else { " MARKET FEED " };
+            let title = if paused {
+                " MARKET FEED · PAUSED "
+            } else {
+                " MARKET FEED "
+            };
             let feed = Paragraph::new(lines)
                 .style(Style::default().fg(Color::White))
                 .block(
@@ -159,9 +161,15 @@ pub async fn run(args: StreamArgs) -> Result<()> {
             frame.render_widget(feed, areas[2]);
 
             let footer = Paragraph::new(Line::from(vec![
-                Span::styled(" q/esc ", Style::default().fg(Color::Black).bg(Color::White)),
+                Span::styled(
+                    " q/esc ",
+                    Style::default().fg(Color::Black).bg(Color::White),
+                ),
                 Span::raw(" quit   "),
-                Span::styled(" space ", Style::default().fg(Color::Black).bg(Color::White)),
+                Span::styled(
+                    " space ",
+                    Style::default().fg(Color::Black).bg(Color::White),
+                ),
                 Span::raw(format!(" pause   last update {last_update}")),
             ]));
             frame.render_widget(footer, areas[3]);

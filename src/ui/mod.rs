@@ -3,9 +3,7 @@ pub mod live;
 
 use std::io::{self, IsTerminal};
 
-use comfy_table::{
-    Attribute, Cell, CellAlignment, ContentArrangement, Table, presets::NOTHING,
-};
+use comfy_table::{Attribute, Cell, CellAlignment, ContentArrangement, Table, presets::NOTHING};
 use console::{Style, Term};
 use indicatif::{ProgressBar, ProgressStyle};
 use serde::Serialize;
@@ -82,11 +80,19 @@ impl Ui {
     pub fn startup_status(self, status: Result<&SessionStatus, &str>, journal_records: usize) {
         let (session, balance) = match status {
             Ok(status) => (
-                Style::new().green().bold().apply_to("● AUTHENTICATED").to_string(),
+                Style::new()
+                    .green()
+                    .bold()
+                    .apply_to("● AUTHENTICATED")
+                    .to_string(),
                 format!("{} {}", status.currency, status.available_balance),
             ),
             Err(message) => (
-                Style::new().yellow().bold().apply_to("○ PUBLIC MODE").to_string(),
+                Style::new()
+                    .yellow()
+                    .bold()
+                    .apply_to("○ PUBLIC MODE")
+                    .to_string(),
                 Style::new().dim().apply_to(message).to_string(),
             ),
         };

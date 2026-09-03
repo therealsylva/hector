@@ -6,4 +6,3 @@ pub const FULL: &str = r" _   _           _
 \_| |_/\___|\___|\__\___/|_|   ";
 
 pub const COMPACT: &str = "HECTOR";
-

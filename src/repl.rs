@@ -30,25 +30,8 @@ use crate::{
 };
 
 const COMPLETIONS: &[&str] = &[
-    "balance",
-    "bet",
-    "clear",
-    "event",
-    "events",
-    "exit",
-    "help",
-    "history",
-    "market",
-    "markets",
-    "orders",
-    "outcomes",
-    "quit",
-    "session",
-    "sports",
-    "status",
-    "stream",
-    "topic",
-    "version",
+    "balance", "bet", "clear", "event", "events", "exit", "help", "history", "market", "markets",
+    "orders", "outcomes", "quit", "session", "sports", "status", "stream", "topic", "version",
     "watch",
 ];
 
@@ -239,7 +222,9 @@ async fn show_startup_status(ui: Ui) {
         .and_then(|client| Ok(client))
         .map_err(|error| error.to_string());
     let status = match status {
-        Ok(client) => session::check(&client).await.map_err(|error| error.to_string()),
+        Ok(client) => session::check(&client)
+            .await
+            .map_err(|error| error.to_string()),
         Err(error) => Err(error),
     };
     if let Some(spinner) = spinner {
@@ -305,7 +290,10 @@ fn event_alias(subcommand: &str, rest: &[String]) -> Result<Vec<String>, String>
 }
 
 fn with_params<const N: usize>(prefix: [&str; N], rest: &[String]) -> Vec<String> {
-    let mut output = prefix.iter().map(|value| (*value).to_owned()).collect::<Vec<_>>();
+    let mut output = prefix
+        .iter()
+        .map(|value| (*value).to_owned())
+        .collect::<Vec<_>>();
     let mut index = 0;
     while index < rest.len() {
         if rest[index].starts_with('-') {
@@ -472,9 +460,15 @@ fn history_path() -> Option<PathBuf> {
 
 fn safe_for_history(line: &str) -> bool {
     let lowercase = line.to_ascii_lowercase();
-    !["cookie", "accesstoken", "refreshtoken", "password", "secret"]
-        .iter()
-        .any(|secret| lowercase.contains(secret))
+    ![
+        "cookie",
+        "accesstoken",
+        "refreshtoken",
+        "password",
+        "secret",
+    ]
+    .iter()
+    .any(|secret| lowercase.contains(secret))
 }
 
 fn print_history(history: &DefaultHistory) {
@@ -486,7 +480,10 @@ fn print_history(history: &DefaultHistory) {
 fn print_help() {
     println!();
     println!("{}", Style::new().cyan().bold().apply_to("COMMANDS"));
-    println!("  {:<22} account health and available balance", "status · balance");
+    println!(
+        "  {:<22} account health and available balance",
+        "status · balance"
+    );
     println!("  {:<22} browse public market data", "sports · events");
     println!("  {:<22} inspect one fixture", "event <event-id>");
     println!("  {:<22} list its market groups", "markets <event-id>");
