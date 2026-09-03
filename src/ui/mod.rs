@@ -180,7 +180,10 @@ impl Ui {
 
     pub fn render_value(self, title: &str, value: &Value) {
         if !self.rich {
-            println!("{}", serde_json::to_string_pretty(value).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(value).unwrap_or_default()
+            );
             return;
         }
         self.section(title);
@@ -207,7 +210,10 @@ impl Ui {
 
     pub fn render_orders(self, records: &[JournalRecord]) {
         if !self.rich {
-            println!("{}", serde_json::to_string_pretty(records).unwrap_or_default());
+            println!(
+                "{}",
+                serde_json::to_string_pretty(records).unwrap_or_default()
+            );
             return;
         }
         self.section("Order journal");
