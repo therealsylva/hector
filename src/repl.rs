@@ -11,7 +11,7 @@ use rustyline::{
     error::ReadlineError,
     highlight::Highlighter,
     hint::Hinter,
-    history::{DefaultHistory, History},
+    history::DefaultHistory,
     validate::Validator,
 };
 
@@ -229,7 +229,7 @@ async fn show_startup_status(ui: Ui) {
         Ok(client) => session::check(&client)
             .await
             .map_err(|error| error.to_string()),
-        Err(error) => Err(error),
+        Err(error) => Err(error.to_string()),
     };
     if let Some(spinner) = spinner {
         spinner.finish_and_clear();
