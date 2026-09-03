@@ -42,7 +42,7 @@ hector › bet
 hector › orders
 ```
 
-`topic` and `bet` start guided flows. Live execution still passes through all three CLI guards, shows the maximum loss, defaults to cancellation, and requires typing the exact final confirmation phrase. `watch` opens the full-screen realtime monitor; press Space to pause and `q`, Escape, or Ctrl-C to return to the REPL.
+Tab completes commands, and history is restored between sessions without retaining commands that look sensitive. `topic` and `bet` start guided flows. Live execution still passes through all three CLI guards, shows the maximum loss, defaults to cancellation, and requires typing the exact final confirmation phrase. `watch` opens the full-screen realtime monitor; press Space to pause and `q`, Escape, or Ctrl-C to return to the REPL.
 
 Use `--plain`, `--color never`, or the standard `NO_COLOR` environment variable when rich output is undesirable. `--json` always emits undecorated machine-readable output, and `hector stream` retains its JSON Lines contract outside the interactive shell.
 
