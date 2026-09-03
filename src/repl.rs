@@ -458,13 +458,12 @@ fn topic_wizard() -> Result<Command> {
 }
 
 fn history_path() -> Option<PathBuf> {
-    ProjectDirs::from("com", "sylva", "hector")
-        .map(|directories| {
-            directories
-                .state_dir()
-                .unwrap_or_else(|| directories.data_local_dir())
-                .join("history")
-        })
+    ProjectDirs::from("com", "sylva", "hector").map(|directories| {
+        directories
+            .state_dir()
+            .unwrap_or_else(|| directories.data_local_dir())
+            .join("history")
+    })
 }
 
 fn safe_for_history(line: &str) -> bool {
