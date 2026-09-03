@@ -1,6 +1,6 @@
 # Hector
 
-Hector is a Linux-first Rust CLI for low-latency SportyBet market data and guarded bet execution.
+Hector is a Linux-first Rust terminal for low-latency SportyBet market data and guarded bet execution. It combines an interactive REPL, rich terminal output, and a full-screen realtime monitor with an automation-safe CLI.
 
 It speaks the same public REST, Engine.IO 3 / Socket.IO 2, and protected transaction protocols as the deployed Nigerian web client. Authentication is session-import only: Hector never asks for or stores an account password.
 
@@ -17,6 +17,34 @@ It speaks the same public REST, Engine.IO 3 / Socket.IO 2, and protected transac
 - Fixed-point stake arithmetic with no float rounding
 - Durable pending/confirmed/rejected/ambiguous attempt journal
 - Strict Rust CI and tagged Linux release packaging
+- Persistent command history, completion, guided topic and order flows
+- Adaptive tables and a full-screen realtime TUI
+
+## Interactive terminal
+
+Launch Hector without a subcommand:
+
+```bash
+hector
+```
+
+The terminal opens in public mode when no browser session is configured. Public sports and market data remain available; account and execution commands explain when an imported session is required.
+
+```text
+hector › sports
+hector › events sportId=sr:sport:1 timeline=0
+hector › event sr:match:123456
+hector › markets sr:match:123456
+hector › outcomes sr:match:123456 productId=3
+hector › topic
+hector › watch '1^1^sr:tournament:17^sr:match:123456^3^1^~'
+hector › bet
+hector › orders
+```
+
+Tab completes commands, and history is restored between sessions without retaining commands that look sensitive. `topic` and `bet` start guided flows. Live execution still passes through all three CLI guards, shows the maximum loss, defaults to cancellation, and requires typing the exact final confirmation phrase. `watch` opens the full-screen realtime monitor; press Space to pause and `q`, Escape, or Ctrl-C to return to the REPL.
+
+Use `--plain`, `--color never`, or the standard `NO_COLOR` environment variable when rich output is undesirable. `--json` always emits undecorated machine-readable output, and `hector stream` retains its JSON Lines contract outside the interactive shell.
 
 ## Build
 
@@ -162,5 +190,7 @@ cargo test --locked --all-targets
 cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo build --release --locked
 ```
+
+Every pull request builds an optimized Linux x86_64 binary and uploads a checksummed archive as a GitHub Actions artifact. Version tags publish the same form of artifact as a GitHub release.
 
 The recovered wire contract is documented in [`docs/protocol.md`](docs/protocol.md).

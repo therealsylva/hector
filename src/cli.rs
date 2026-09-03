@@ -13,8 +13,24 @@ pub struct Cli {
     #[arg(long, global = true)]
     pub json: bool,
 
+    /// Disable the rich terminal presentation.
+    #[arg(long, global = true)]
+    pub plain: bool,
+
+    /// Control ANSI colour output.
+    #[arg(long, global = true, value_enum, default_value_t = ColorPolicy::Auto)]
+    pub color: ColorPolicy,
+
     #[command(subcommand)]
-    pub command: Command,
+    pub command: Option<Command>,
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, ValueEnum)]
+pub enum ColorPolicy {
+    #[default]
+    Auto,
+    Always,
+    Never,
 }
 
 #[derive(Debug, Subcommand)]
@@ -132,7 +148,7 @@ pub struct MarketTopicArgs {
     pub specifier: String,
 }
 
-#[derive(Debug, Args)]
+#[derive(Clone, Debug, Args)]
 pub struct StreamArgs {
     /// Raw caret-separated subscription topic. Repeat to subscribe to more topics.
     #[arg(long, required = true)]

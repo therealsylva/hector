@@ -3,6 +3,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use tokio::sync::mpsc::UnboundedSender;
 use tokio::time::{Duration, sleep};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use uuid::Uuid;
@@ -39,14 +40,23 @@ struct SocketPayload {
     data: String,
 }
 
-#[derive(Debug, Serialize)]
-struct RealtimeEvent {
-    kind: String,
+#[derive(Clone, Debug, Serialize)]
+pub struct RealtimeEvent {
+    pub kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    topic: Option<String>,
+    pub topic: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    push_type: Option<String>,
-    data: Value,
+    pub push_type: Option<String>,
+    pub data: Value,
+}
+
+#[derive(Clone, Debug)]
+pub enum RealtimeUpdate {
+    Connecting,
+    Connected,
+    Reconnecting { delay_ms: u128, error: String },
+    Raw(String),
+    Event(RealtimeEvent),
 }
 
 /// Connects to the public Engine.IO 3 endpoint and streams decoded JSON lines.
@@ -56,6 +66,25 @@ struct RealtimeEvent {
 /// Returns an error when the URL, WebSocket handshake, protocol frames, or
 /// upstream payloads are invalid.
 pub async fn stream(args: &StreamArgs) -> Result<()> {
+    stream_inner(args, None).await
+}
+
+/// Streams structured connection and market updates to an interactive UI.
+///
+/// # Errors
+///
+/// Returns an error when validation fails or a non-reconnecting connection ends.
+pub async fn stream_updates(
+    args: &StreamArgs,
+    sender: UnboundedSender<RealtimeUpdate>,
+) -> Result<()> {
+    stream_inner(args, Some(sender)).await
+}
+
+async fn stream_inner(
+    args: &StreamArgs,
+    sender: Option<UnboundedSender<RealtimeUpdate>>,
+) -> Result<()> {
     validate(args)?;
     let device_id = args
         .device_id
@@ -66,18 +95,29 @@ pub async fn stream(args: &StreamArgs) -> Result<()> {
     let mut backoff = initial_backoff;
 
     loop {
+        emit_update(sender.as_ref(), RealtimeUpdate::Connecting);
         let mut subscribed = false;
-        match stream_connection(args, &device_id, &mut subscribed).await {
+        match stream_connection(args, &device_id, &mut subscribed, sender.as_ref()).await {
             Ok(()) => return Ok(()),
             Err(error) if args.no_reconnect => return Err(error),
             Err(error) => {
                 if subscribed {
                     backoff = initial_backoff;
                 }
-                eprintln!(
-                    "realtime connection lost; reconnecting in {} ms: {error:#}",
-                    backoff.as_millis()
-                );
+                if sender.is_some() {
+                    emit_update(
+                        sender.as_ref(),
+                        RealtimeUpdate::Reconnecting {
+                            delay_ms: backoff.as_millis(),
+                            error: format!("{error:#}"),
+                        },
+                    );
+                } else {
+                    eprintln!(
+                        "realtime connection lost; reconnecting in {} ms: {error:#}",
+                        backoff.as_millis()
+                    );
+                }
                 tokio::select! {
                     () = sleep(backoff) => {}
                     signal = tokio::signal::ctrl_c() => {
@@ -95,6 +135,7 @@ async fn stream_connection(
     args: &StreamArgs,
     device_id: &str,
     subscribed: &mut bool,
+    sender: Option<&UnboundedSender<RealtimeUpdate>>,
 ) -> Result<()> {
     let (socket, _) = connect_async(&args.socket_url)
         .await
@@ -112,7 +153,11 @@ async fn stream_connection(
                     Message::Text(text) => {
                         let frame = text.as_str();
                         if args.raw {
-                            println!("{frame}");
+                            if let Some(sender) = sender {
+                                let _ = sender.send(RealtimeUpdate::Raw(frame.to_owned()));
+                            } else {
+                                println!("{frame}");
+                            }
                         }
                         if frame.starts_with('0') {
                             writer.send(Message::Text("40".into())).await?;
@@ -122,8 +167,15 @@ async fn stream_connection(
                         } else if frame == "40" && !*subscribed {
                             register_and_subscribe(&mut writer, args, device_id).await?;
                             *subscribed = true;
+                            if let Some(sender) = sender {
+                                let _ = sender.send(RealtimeUpdate::Connected);
+                            }
                         } else if let Some(event) = parse_event_frame(frame)? {
-                            println!("{}", serde_json::to_string(&event)?);
+                            if let Some(sender) = sender {
+                                let _ = sender.send(RealtimeUpdate::Event(event));
+                            } else {
+                                println!("{}", serde_json::to_string(&event)?);
+                            }
                         } else if frame.starts_with('1') {
                             bail!("realtime socket was closed by the server");
                         }
@@ -139,6 +191,12 @@ async fn stream_connection(
                 return Ok(());
             }
         }
+    }
+}
+
+fn emit_update(sender: Option<&UnboundedSender<RealtimeUpdate>>, update: RealtimeUpdate) {
+    if let Some(sender) = sender {
+        let _ = sender.send(update);
     }
 }
 

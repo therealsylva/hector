@@ -49,7 +49,7 @@ jobs:
       - run: cargo test --locked --all-targets
 
   release-build:
-    name: Linux release build
+    name: Linux binary artifact
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -62,8 +62,16 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
       - run: cargo build --release --locked
+      - name: Package binary and checksum
+        run: |
+          short_sha="${GITHUB_SHA::12}"
+          install -Dm755 target/release/hector dist/hector
+          tar -C dist -czf "dist/hector-${short_sha}-linux-x86_64.tar.gz" hector
+          sha256sum "dist/hector-${short_sha}-linux-x86_64.tar.gz" > "dist/hector-${short_sha}-linux-x86_64.tar.gz.sha256"
+          rm dist/hector
       - uses: actions/upload-artifact@v4
         with:
           name: hector-linux-x86_64
-          path: target/release/hector
+          path: dist/*
           if-no-files-found: error
+          retention-days: 14
