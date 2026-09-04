@@ -1,4 +1,8 @@
-use std::{fmt, str::FromStr, time::{SystemTime, UNIX_EPOCH}};
+use std::{
+    fmt,
+    str::FromStr,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use anyhow::{Result, bail};
 use serde_json::Value;
