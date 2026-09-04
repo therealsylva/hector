@@ -1,4 +1,4 @@
-use std::{fmt, str::FromStr};
+use std::{fmt, str::FromStr, time::{SystemTime, UNIX_EPOCH}};
 
 use anyhow::{Result, bail};
 use serde_json::Value;
@@ -15,6 +15,11 @@ impl QueryParam {
     #[must_use]
     pub fn as_pair(&self) -> (&str, &str) {
         (&self.key, &self.value)
+    }
+
+    #[must_use]
+    fn key(&self) -> &str {
+        &self.key
     }
 }
 
@@ -45,10 +50,35 @@ impl fmt::Display for QueryParam {
     }
 }
 
+fn events_query(command: &MarketCommand) -> Vec<(String, String)> {
+    let mut query: Vec<_> = command
+        .query()
+        .iter()
+        .map(|param| {
+            let (key, value) = param.as_pair();
+            (key.to_owned(), value.to_owned())
+        })
+        .collect();
+
+    if matches!(command, MarketCommand::Events(_))
+        && !command.query().iter().any(|param| param.key() == "_t")
+    {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock is before Unix epoch")
+            .as_millis();
+        query.push(("_t".to_owned(), timestamp.to_string()));
+    }
+
+    query
+}
+
 /// Fetches a public market-data resource without requiring a session cookie.
 ///
 /// The parameters are intentionally passed through because `SportyBet` varies the
-/// accepted filters across regions and frontend releases.
+/// accepted filters across regions and frontend releases. Event-list requests also
+/// receive the current Unix timestamp in milliseconds because the live web client
+/// sends `_t` and the upstream endpoint currently rejects requests without it.
 ///
 /// # Errors
 ///
@@ -62,13 +92,14 @@ pub async fn fetch(client: &SportyClient, command: &MarketCommand) -> Result<Val
         MarketCommand::MarketGroups(_) => "factsCenter/marketGroups",
         MarketCommand::Outcomes(_) => "factsCenter/Outcomes",
     };
-    let query: Vec<_> = command.query().iter().map(QueryParam::as_pair).collect();
+    let query = events_query(command);
     client.get_with_query(path, &query).await
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cli::MarketQueryArgs;
 
     #[test]
     fn parses_query_value_at_first_equals_sign() {
@@ -86,5 +117,51 @@ mod tests {
     #[test]
     fn rejects_newline_injection() {
         assert!("eventId=ok\r\nHeader:value".parse::<QueryParam>().is_err());
+    }
+
+    #[test]
+    fn adds_timestamp_only_to_events() {
+        let command = MarketCommand::Events(MarketQueryArgs {
+            params: vec!["sportId=sr:sport:1".parse().unwrap()],
+        });
+        let query = events_query(&command);
+        assert_eq!(query[0], ("sportId".to_owned(), "sr:sport:1".to_owned()));
+        let timestamp = query
+            .iter()
+            .find(|(key, _)| key == "_t")
+            .map(|(_, value)| value.parse::<u128>().unwrap())
+            .unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis();
+        assert!(timestamp <= now);
+        assert!(now - timestamp < 5_000);
+    }
+
+    #[test]
+    fn preserves_explicit_timestamp() {
+        let command = MarketCommand::Events(MarketQueryArgs {
+            params: vec![
+                "sportId=sr:sport:1".parse().unwrap(),
+                "_t=123456789".parse().unwrap(),
+            ],
+        });
+        let query = events_query(&command);
+        assert_eq!(
+            query.iter().filter(|(key, _)| key == "_t").count(),
+            1
+        );
+        assert_eq!(
+            query.iter().find(|(key, _)| key == "_t").unwrap().1,
+            "123456789"
+        );
+    }
+
+    #[test]
+    fn does_not_add_timestamp_to_other_market_commands() {
+        let command = MarketCommand::Sports(MarketQueryArgs { params: vec![] });
+        let query = events_query(&command);
+        assert!(query.is_empty());
     }
 }
